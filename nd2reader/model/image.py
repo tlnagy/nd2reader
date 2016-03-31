@@ -16,6 +16,7 @@ class Image(np.ndarray):
         self._timestamp = None
         self._frame_number = None
         self._field_of_view = None
+        self._well = None
         self._channel = None
         self._z_level = None
 
@@ -25,7 +26,7 @@ class Image(np.ndarray):
         else:
             return obj
 
-    def add_params(self, index, timestamp, frame_number, field_of_view, channel, z_level):
+    def add_params(self, index, timestamp, frame_number, field_of_view, well, channel, z_level):
         """
         :param index: The integer that can be used to directly index this image
         :type index: int
@@ -36,6 +37,8 @@ class Image(np.ndarray):
         :type frame_number:     int
         :param field_of_view: The label for the place in the XY-plane where this image was taken.
         :type field_of_view: int
+        :param well: The well that this image belongs to
+        :type well: str
         :param channel: The name of the color of this image
         :type channel: str
         :param z_level: The label for the location in the Z-plane where this image was taken.
@@ -46,6 +49,7 @@ class Image(np.ndarray):
         self._timestamp = timestamp
         self._frame_number = int(frame_number)
         self._field_of_view = field_of_view
+        self._well = well
         self._channel = channel
         self._z_level = z_level
 
@@ -82,6 +86,15 @@ class Image(np.ndarray):
 
         """
         return self._field_of_view
+
+    @property
+    def well(self):
+        """
+        For plate imaging, which well the image belongs to
+
+        :rtype:     int
+        """
+        return self._well
 
     @property
     def timestamp(self):

@@ -3,11 +3,12 @@ import six
 
 class Metadata(object):
     """ A simple container for ND2 metadata. """
-    def __init__(self, height, width, channels, date, fields_of_view, frames, z_levels, total_images_per_channel, pixel_microns):
+    def __init__(self, height, width, channels, date, wells, fields_of_view, frames, z_levels, total_images_per_channel, pixel_microns):
         self._height = height
         self._width = width
         self._channels = channels
         self._date = date
+        self._wells = wells
         self._fields_of_view = fields_of_view
         self._frames = frames
         self._z_levels = z_levels
@@ -54,6 +55,15 @@ class Metadata(object):
 
         """
         return self._channels
+
+    @property
+    def wells(self):
+        """
+        These are labels assigned to wells for plate imaging, e.g. "A01", "B02", etc
+
+        :rtype: list
+        """
+        return self._wells
 
     @property
     def fields_of_view(self):

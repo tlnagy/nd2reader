@@ -27,8 +27,12 @@ class V3Driver(object):
     def calculate_image_properties(self, index):
         field_of_view = self._calculate_field_of_view(index)
         channel = self._calculate_channel(index)
+        try:
+            well = self._calculate_well(field_of_view)
+        except NotImplementedError:
+            well = None
         z_level = self._calculate_z_level(index)
-        return field_of_view, channel, z_level
+        return field_of_view, channel, well, z_level
 
     def get_image(self, index):
         """
@@ -41,7 +45,7 @@ class V3Driver(object):
         :rtype:    Image or None
 
         """
-        field_of_view, channel, z_level = self.calculate_image_properties(index)
+        field_of_view, channel, well, z_level = self.calculate_image_properties(index)
         channel_offset = index % len(self._metadata.channels)
         image_group_number = int(index / len(self._metadata.channels))
         frame_number = self._calculate_frame_number(image_group_number, field_of_view, z_level)
@@ -50,10 +54,10 @@ class V3Driver(object):
         except NoImageError:
             return None
         else:
-            image.add_params(index, timestamp, frame_number, field_of_view, channel, z_level)
+            image.add_params(index, timestamp, frame_number, field_of_view, well, channel, z_level)
             return image
 
-    def get_image_by_attributes(self, frame_number, field_of_view, channel_name, z_level, height, width):
+    def get_image_by_attributes(self, frame_number, field_of_view, channel_name, well, z_level, height, width):
         """
         Attempts to get Image based on attributes alone.
 
@@ -61,6 +65,7 @@ class V3Driver(object):
         :type field_of_view:    int
         :type channel_name:    str
         :type z_level:    int
+        :type well:     str
         :type height:    int
         :type width:    int
 
@@ -73,7 +78,7 @@ class V3Driver(object):
                                                                  height,
                                                                  width)
             image = Image(raw_image_data)
-            image.add_params(image_group_number, timestamp, frame_number, field_of_view, channel_name, z_level)
+            image.add_params(image_group_number, timestamp, frame_number, field_of_view, well, channel_name, z_level)
         except (TypeError, NoImageError):
             return None
         else:
@@ -89,6 +94,15 @@ class V3Driver(object):
         """
         images_per_cycle = len(self._metadata.z_levels) * len(self._metadata.channels)
         return int((index - (index % images_per_cycle)) / images_per_cycle) % len(self._metadata.fields_of_view)
+
+    def _calculate_well(self, field_of_view):
+        """
+        Determines the well being imaged for a given image
+
+        :param field_of_view: int
+        :rtype: str
+        """
+        raise NotImplementedError()
 
     def _calculate_channel(self, index):
         """
@@ -109,9 +123,9 @@ class V3Driver(object):
         """
         return self._metadata.z_levels[int(((index - (index % len(self._metadata.channels))) / len(self._metadata.channels)) % len(self._metadata.z_levels))]
 
-    def _calculate_image_group_number(self, frame_number, fov, z_level):
+    def _calculate_image_group_number(self, frame_number, fov, well, z_level):
         """
-        Images are grouped together if they share the same time index, field of view, and z-level.
+        Images are grouped together if they share the same time index, field of view, well, and z-level.
 
         :type frame_number: int
         :type fov: int

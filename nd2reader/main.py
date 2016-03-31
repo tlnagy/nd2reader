@@ -21,6 +21,7 @@ class Nd2(object):
                           "Image size: %sx%s (HxW)" % (self.height, self.width),
                           "Frames: %s" % len(self.frames),
                           "Channels: %s" % ", ".join(["%s" % str(channel) for channel in self.channels]),
+                          "Wells : %s" % (len(set(self.wells)) if len(self.wells) > 1 else "N/A"),
                           "Fields of View: %s" % len(self.fields_of_view),
                           "Z-Levels: %s" % len(self.z_levels)
                           ])
@@ -81,8 +82,8 @@ class Nd2(object):
         # By default, we stop after the last image. Otherwise we make sure the user-provided value is valid
         stop = len(self) if stop is None else max(0, min(stop, len(self)))
         for frame in range(start, stop):
-            field_of_view, channel, z_level = self._parser.driver.calculate_image_properties(frame)
-            if field_of_view in fields_of_view and channel in channels and z_level in z_levels:
+            field_of_view, channel, well, z_level = self._parser.driver.calculate_image_properties(frame)
+            if field_of_view in fields_of_view and channel in channels and z_level in z_levels and well in wells:
                 image = self._parser.driver.get_image(frame)
                 if image is not None:
                     yield image
@@ -131,6 +132,15 @@ class Nd2(object):
 
         """
         return self._metadata.fields_of_view
+
+    @property
+    def wells(self):
+        """
+        A list of well names for plate images, e.g. "A01", "B02", etc
+
+        :return:    list of str
+        """
+        return self._metadata.wells
 
     @property
     def channels(self):

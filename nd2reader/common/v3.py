@@ -130,3 +130,37 @@ def read_metadata(data, count):
             # the value to the already-existing list.
             metadata[name].append(value)
     return metadata
+
+
+def recursive_search(d, target):
+    """
+    Recursively searches through nested dicts and lists to find the target
+
+    :type d: nested dicts/lists
+    :type target:
+    :rtype      generator
+    """
+    if isinstance(d, dict) and target in d:
+        yield d[target]
+    if isinstance(d, list):
+        for k in d:
+            for j in recursive_search(k, target):
+                yield j
+    elif isinstance(d, dict):
+        for k in d:
+            for j in recursive_search(d[k], target):
+                yield j
+
+
+def ordered_eval(d, keys):
+    """
+    Given a nested dict/list structure, finds the substructure that is rooted with the nested
+    keys given in keys
+
+    :type d: nested dicts/lists
+    :type keys: list
+    :rtype: list
+    """
+    if len(keys) == 1:
+        return list(recursive_search(d, keys[0]))
+    return list(recursive_search(ordered_eval(d, keys[:-1]), keys[-1]))

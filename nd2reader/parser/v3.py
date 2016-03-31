@@ -5,7 +5,7 @@ from nd2reader.model.metadata import Metadata, CameraSettings
 from nd2reader.model.label import LabelMap
 from nd2reader.parser.base import BaseParser
 from nd2reader.driver.v3 import V3Driver
-from nd2reader.common.v3 import read_chunk, read_array, read_metadata
+from nd2reader.common.v3 import read_chunk, read_array, read_metadata, ordered_eval
 import re
 import six
 import struct
@@ -159,13 +159,14 @@ class V3Parser(BaseParser):
         height = self.raw_metadata.image_attributes[six.b('SLxImageAttributes')][six.b('uiHeight')]
         width = self.raw_metadata.image_attributes[six.b('SLxImageAttributes')][six.b('uiWidth')]
         date = self._parse_date(self.raw_metadata)
-        fields_of_view = self._parse_fields_of_view(self.raw_metadata)
+        fov_count = len(self._parse_fields_of_view(self.raw_metadata))
+        wells, fields_of_view = self._parse_wells(self.raw_metadata, fov_count)
         frames = self._parse_frames(self.raw_metadata)
         z_levels = self._parse_z_levels(self.raw_metadata)
         total_images_per_channel = self._parse_total_images_per_channel(self.raw_metadata)
         channels = self._parse_channels(self.raw_metadata)
         pixel_microns = self.raw_metadata.image_calibration.get(six.b('SLxCalibration'), {}).get(six.b('dCalibration'))
-        self.metadata = Metadata(height, width, channels, date, fields_of_view, frames, z_levels, total_images_per_channel, pixel_microns)
+        self.metadata = Metadata(height, width, channels, date, wells, fields_of_view, frames, z_levels, total_images_per_channel, pixel_microns)
 
     def _parse_date(self, raw_metadata):
         """
@@ -218,6 +219,45 @@ class V3Parser(BaseParser):
             channels.append(chan[six.b('sDescription')].decode("utf8"))
         return channels
 
+
+
+    def _parse_wells(self, raw_metadata, fov_count):
+        """
+        For plate imaging, the FOVs can be grouped by the well they were acquired in
+
+        :type raw_metadata:     V3RawMetadata
+        :type fov_count:    int
+        :rtype: list
+        """
+        try:
+            expdata = raw_metadata.image_metadata[six.b('SLxExperiment')]
+            looppars = list(ordered_eval(expdata, [six.b('uLoopPars'), six.b('Points'), six.b('')]))[0]
+
+            wells = []
+            prev_count = count = 0
+            for pars in looppars:
+                new_well, fov = pars[six.b('dPosName')].decode("utf8").split("_")
+                count = max(count, int(fov) + 1)
+                if len(wells) == 0:
+                    wells.append(new_well)
+                    continue
+                present = False
+                for well in wells:
+                    if new_well == well:
+                        present = True
+                        break
+                if not present:
+                    wells.append(new_well)
+                    assert (prev_count == count) | (prev_count == 0)
+                    prev_count = count
+                    count = 1
+            assert prev_count == count
+            return wells, list(range(prev_count))
+        except KeyError:
+            return [""], list(range(fov_count))
+        except AssertionError:
+            raise NotImplementedError("Plate images with differing FOVs per well is not supported at this time")
+
     def _parse_fields_of_view(self, raw_metadata):
         """
         The metadata contains information about fields of view, but it contains it even if some fields
@@ -227,7 +267,6 @@ class V3Parser(BaseParser):
 
         :type raw_metadata:    V3RawMetadata
         :rtype:    list
-
         """
         return self._parse_dimension(r""".*?XY\((\d+)\).*?""", raw_metadata)
 
